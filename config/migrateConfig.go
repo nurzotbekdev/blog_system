@@ -7,5 +7,6 @@ func MigrateConfig() {
 		&models.User{},
 		&models.Channel{},
 		&models.Subscription{},
+		&models.Category{},
 	)
 }

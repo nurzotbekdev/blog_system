@@ -82,6 +82,7 @@ func (user *UserController) GoogleCallback(ctx *gin.Context) {
 		Email:        googleUser.Email,
 		FullName:     googleUser.Name,
 		ProfileImage: googleUser.Picture,
+		Role:         "user",
 	}
 
 	savedUser, err := user.UserService.SignIn(newUser)

@@ -35,6 +35,8 @@ func main() {
 	routes.UserRoutes(router)
 	routes.ChannelRoutes(router)
 	routes.SubscriptionRoutes(router)
+	routes.CategoryRoutes(router)
+	routes.LanguageRoutes(router)
 
 	logging.Log.Info("Server started on :8080")
 

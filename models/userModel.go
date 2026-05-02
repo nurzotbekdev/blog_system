@@ -8,4 +8,5 @@ type User struct {
 	Email        string `json:"email" gorm:"size:255;uniqueIndex;not null"`
 	FullName     string `json:"full_name" gorm:"size:255"`
 	ProfileImage string `json:"profile_image" gorm:"size:255"`
+	Role         string `gorm:"size:20;default:'user'"`
 }

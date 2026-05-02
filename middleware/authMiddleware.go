@@ -50,12 +50,8 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		userID := uint(sub)
-
 		ctx.Set("user_id", userID)
-
-		logging.Log.Info("Authenticated request",
-			zap.Uint("user_id", userID),
-		)
+		logging.Log.Info("Authenticated request", zap.Uint("user_id", userID))
 
 		ctx.Next()
 	}
