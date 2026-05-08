@@ -4,7 +4,7 @@ import "gorm.io/gorm"
 
 type Video struct {
 	gorm.Model
-	ChannelID     uint     `json:"channel_id" gorm:"index"`
+	ChannelID     uint     `json:"channel_id"`
 	Channel       Channel  `gorm:"foreignKey:ChannelID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	LanguageID    uint     `json:"language_id"`
 	Language      Language `gorm:"foreignKey:LanguageID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL;"`
@@ -22,8 +22,8 @@ type Video struct {
 	CommentCount  int64    `json:"comment_count" gorm:"default:0"`
 	DislikeCount  int64    `json:"dislike_count" gorm:"default:0;not null"`
 	DurationVideo int64    `json:"duration_video"`
-	Visibility    string   `json:"visibility" gorm:"default:'public'"`
+	Visibility    string   `json:"visibility" gorm:"size:100;default:'public'"`
 	ShareCount    int64    `json:"share_count"`
-	DownloadCount int64    `json:"download_count"`
-	FavoriteCount int64    `json:"favorite_count"`
+	DownloadCount int64    `json:"download_count" gorm:"default:0"`
+	FavoriteCount int64    `json:"favorite_count" gorm:"default:0"`
 }

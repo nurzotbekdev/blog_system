@@ -37,6 +37,7 @@ func main() {
 	routes.SubscriptionRoutes(router)
 	routes.CategoryRoutes(router)
 	routes.LanguageRoutes(router)
+	routes.VideoRoutes(router)
 
 	logging.Log.Info("Server started on :8080")
 

@@ -8,5 +8,7 @@ func MigrateConfig() {
 		&models.Channel{},
 		&models.Subscription{},
 		&models.Category{},
+		&models.Language{},
+		&models.Video{},
 	)
 }
