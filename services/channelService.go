@@ -107,7 +107,6 @@ func (s *channelService) GetMyChannel(userID uint) (*schemas.ChannelResponse, er
 			channels.total_videos,
 			channels.total_comments,
 			channels.total_views,
-			channels.total_watch_time,
 			channels.created_at
 		`).
 		Joins("JOIN users ON users.id = channels.user_id").

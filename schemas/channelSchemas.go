@@ -27,7 +27,6 @@ type ChannelResponse struct {
 	TotalVideos      uint      `json:"total_videos"`
 	TotalComments    uint      `json:"total_comments"`
 	TotalViews       uint      `json:"total_views"`
-	TotalWatchTime   float64   `json:"total_watch_time"`
 	CreatedAt        time.Time `json:"created_at"`
 }
 
