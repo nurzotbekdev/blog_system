@@ -23,7 +23,7 @@ type Video struct {
 	DislikeCount  int64    `json:"dislike_count" gorm:"default:0;not null"`
 	DurationVideo int64    `json:"duration_video"`
 	Visibility    string   `json:"visibility" gorm:"size:100;default:'public'"`
-	ShareCount    int64    `json:"share_count"`
+	Status        string   `json:"status" gorm:"size:20;default:'processing'"`
+	ShareCount    int64    `json:"share_count" gorm:"default:0"`
 	DownloadCount int64    `json:"download_count" gorm:"default:0"`
-	FavoriteCount int64    `json:"favorite_count" gorm:"default:0"`
 }

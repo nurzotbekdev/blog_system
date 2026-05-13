@@ -4,6 +4,7 @@ import (
 	"blog_system/config"
 	"blog_system/logging"
 	"blog_system/routes"
+	"blog_system/workers"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -14,6 +15,7 @@ func main() {
 	config.EnvConfig()
 	config.DatabaseConfig()
 	config.MigrateConfig()
+	config.RedisConfig()
 	config.SetupGoogleAuth()
 
 	logging.Init()
@@ -38,6 +40,11 @@ func main() {
 	routes.CategoryRoutes(router)
 	routes.LanguageRoutes(router)
 	routes.VideoRoutes(router)
+	routes.VideoShareRoutes(router)
+	routes.VideoDownloadRoutes(router)
+	routes.CommentRoutes(router)
+
+	go workers.StartVideoWorker()
 
 	logging.Log.Info("Server started on :8080")
 

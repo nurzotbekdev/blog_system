@@ -3,9 +3,11 @@ package services
 import (
 	"blog_system/config"
 	"blog_system/helper"
+	"blog_system/jobs"
 	"blog_system/logging"
 	"blog_system/models"
 	"blog_system/schemas"
+	"encoding/json"
 	"errors"
 	"mime/multipart"
 	"os"
@@ -18,7 +20,7 @@ import (
 type VideoService interface {
 	CreateVideo(req schemas.CreateVideoRequest, userID uint) error
 	GetMyVideo(userID uint) ([]schemas.MyVideoResponse, error)
-	GetVideo(page, limit int, categoryID uint, search, languageCode, sortBy string) (schemas.VideoListResponse, error)
+	GetVideo(page, limit int, categoryID uint, search, languageCode, sortBy string) (*schemas.VideoListResponse, error)
 	GetVideoByID(videoID uint) (*schemas.VideoResponse, error)
 	EditVideo(videoID, userID uint, languageID, categoryID *uint, title, description, visibility *string, thumbnailPath *multipart.FileHeader) error
 	DeleteVideo(videoID, userID uint) error
@@ -58,7 +60,7 @@ func (s *videoService) CreateVideo(req schemas.CreateVideoRequest, userID uint) 
 		videoPath, err = helper.SaveFile(req.FilePath, "uploads/video")
 		if err != nil {
 			logging.Log.Error("Profile upload failed")
-			return nil
+			return err
 		}
 	}
 
@@ -66,7 +68,7 @@ func (s *videoService) CreateVideo(req schemas.CreateVideoRequest, userID uint) 
 		thumbnailPath, err = helper.SaveFile(req.ThumbnailPath, "uploads/thumbnail")
 		if err != nil {
 			logging.Log.Error("Profile upload failed")
-			return nil
+			return err
 		}
 	}
 
@@ -99,6 +101,7 @@ func (s *videoService) CreateVideo(req schemas.CreateVideoRequest, userID uint) 
 		Size:          size,
 		DurationVideo: duration,
 		Visibility:    "public",
+		Status:        "processing",
 	}
 
 	if err := config.DB.Create(&newVideo).Error; err != nil {
@@ -120,8 +123,20 @@ func (s *videoService) CreateVideo(req schemas.CreateVideoRequest, userID uint) 
 		return err
 	}
 
-	logging.Log.Error("Video upload failed", zap.Error(err))
-	return err
+	job := jobs.VideoJob{
+		VideoID:    newVideo.ID,
+		FilePath:   videoPath,
+		Resolution: resolution,
+	}
+
+	data, err := json.Marshal(job)
+	if err != nil {
+		return err
+	}
+
+	config.RedisClient.LPush(config.Ctx, "video_queue", data)
+
+	return nil
 }
 
 func (s *videoService) GetMyVideo(userID uint) ([]schemas.MyVideoResponse, error) {
@@ -151,9 +166,9 @@ func (s *videoService) GetMyVideo(userID uint) ([]schemas.MyVideoResponse, error
 		videos.dislike_count,
 		videos.duration_video,
 		videos.visibility,
+		videos.status,
 		videos.share_count,
 		videos.download_count,
-		videos.favorite_count,
 		videos.created_at
 		`).
 		Joins("JOIN channels ON channels.id = videos.channel_id").
@@ -170,10 +185,31 @@ func (s *videoService) GetMyVideo(userID uint) ([]schemas.MyVideoResponse, error
 		return nil, ErrVideoNotFound
 	}
 
+	for i := range results {
+		var qualities []models.VideoQuality
+		if err := config.DB.
+			Where("video_id = ?", results[i].VideoID).
+			Find(&qualities).Error; err != nil {
+			continue
+		}
+
+		for _, q := range qualities {
+			results[i].Qualities = append(
+				results[i].Qualities,
+				schemas.VideoQualityResponse{
+					Quality:  q.Quality,
+					VideoURL: q.VideoURL,
+					Size:     q.Size,
+					Format:   q.Format,
+				},
+			)
+		}
+	}
+
 	return results, nil
 }
 
-func (s *videoService) GetVideo(page, limit int, categoryID uint, search, languageCode, sortBy string) (schemas.VideoListResponse, error) {
+func (s *videoService) GetVideo(page, limit int, categoryID uint, search, languageCode, sortBy string) (*schemas.VideoListResponse, error) {
 	var results []schemas.VideoResponse
 	var total int64
 
@@ -235,8 +271,9 @@ func (s *videoService) GetVideo(page, limit int, categoryID uint, search, langua
 	countQuery := query
 
 	if err := countQuery.Count(&total).Error; err != nil {
-		return schemas.VideoListResponse{}, err
+		return nil, err
 	}
+
 	switch sortBy {
 	case "trending":
 		query = query.Order("videos.views DESC")
@@ -257,7 +294,29 @@ func (s *videoService) GetVideo(page, limit int, categoryID uint, search, langua
 		Scan(&results)
 
 	if tx.Error != nil {
-		return schemas.VideoListResponse{}, tx.Error
+		return nil, tx.Error
+	}
+
+	for i := range results {
+		var qualities []models.VideoQuality
+
+		if err := config.DB.
+			Where("video_id = ?", results[i].VideoID).
+			Find(&qualities).Error; err != nil {
+			continue
+		}
+
+		for _, q := range qualities {
+			results[i].Qualities = append(
+				results[i].Qualities,
+				schemas.VideoQualityResponse{
+					Quality:  q.Quality,
+					VideoURL: q.VideoURL,
+					Size:     q.Size,
+					Format:   q.Format,
+				},
+			)
+		}
 	}
 
 	totalPages := int((total + int64(limit) - 1) / int64(limit))
@@ -270,7 +329,7 @@ func (s *videoService) GetVideo(page, limit int, categoryID uint, search, langua
 		Data:       results,
 	}
 
-	return response, nil
+	return &response, nil
 }
 
 func (s *videoService) GetVideoByID(videoID uint) (*schemas.VideoResponse, error) {
@@ -314,6 +373,26 @@ func (s *videoService) GetVideoByID(videoID uint) (*schemas.VideoResponse, error
 
 	if tx.RowsAffected == 0 {
 		return nil, ErrVideoNotFound
+	}
+
+	var qualities []models.VideoQuality
+	if err := config.DB.
+		Where("video_id = ?", videoID).
+		Find(&qualities).Error; err != nil {
+		return nil, err
+	}
+
+	for _, q := range qualities {
+
+		results.Qualities = append(
+			results.Qualities,
+			schemas.VideoQualityResponse{
+				Quality:  q.Quality,
+				VideoURL: q.VideoURL,
+				Size:     q.Size,
+				Format:   q.Format,
+			},
+		)
 	}
 
 	if err := config.DB.

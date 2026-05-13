@@ -10,5 +10,9 @@ func MigrateConfig() {
 		&models.Category{},
 		&models.Language{},
 		&models.Video{},
+		&models.VideoShare{},
+		&models.VideoDownload{},
+		&models.VideoQuality{},
+		&models.Comment{},
 	)
 }
