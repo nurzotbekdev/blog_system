@@ -14,4 +14,8 @@ func CommentRoutes(r *gin.Engine) {
 
 	r.POST("/comment", middleware.AuthMiddleware(), commentController.Create)
 	r.GET("/video/:id/comments", middleware.AuthMiddleware(), commentController.GetVideoComments)
+	r.PUT("/comment/:id", middleware.AuthMiddleware(), commentController.UpdateComment)
+	r.DELETE("/comment/:id", middleware.AuthMiddleware(), commentController.DeleteComment)
+	r.POST("/comment/:id/reply", middleware.AuthMiddleware(), commentController.ReplyComment)
+	r.GET("/comment/:id/stats", middleware.AuthMiddleware(), commentController.GetStats)
 }

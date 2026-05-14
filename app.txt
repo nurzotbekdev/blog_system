@@ -1,0 +1,12 @@
+func CommentReactionRoutes(r *gin.Engine) {
+	reaction := r.Group("/comments/:id")
+	reaction.Use(middleware.AuthMiddleware())
+
+	{
+		reaction.POST("/reaction", commentReactionController.CreateOrToggle)
+		reaction.PUT("/reaction", commentReactionController.UpdateReaction)
+		reaction.DELETE("/reaction", commentReactionController.DeleteReaction)
+		reaction.GET("/reactions", commentReactionController.GetStats)
+		reaction.GET("/my-reaction", commentReactionController.GetMyReaction)
+	}
+}

@@ -13,5 +13,5 @@ type Comment struct {
 	Content      string    `json:"content" gorm:"type:text;not null"`
 	LikeCount    int64     `json:"like_count" gorm:"default:0"`
 	DislikeCount int64     `json:"dislike_count" gorm:"default:0"`
-	Replies      []Comment `json:"replies,omitempty" gorm:"foreignKey:ParentID"`
+	Replies      []Comment `json:"replies,omitempty" gorm:"foreignKey:ParentID;constraint:OnDelete:CASCADE;"`
 }

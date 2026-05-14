@@ -26,3 +26,13 @@ type CommentListResponse struct {
 	TotalPages int               `json:"total_pages"`
 	Data       []CommentResponse `json:"data"`
 }
+
+type UpdateCommentRequest struct {
+	Content string `json:"content"`
+}
+
+type CommentStatsResponse struct {
+	CommentID    uint  `json:"comment_id"`
+	LikeCount    int64 `json:"like_count"`
+	DislikeCount int64 `json:"dislike_count"`
+}
