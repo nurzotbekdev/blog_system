@@ -38,34 +38,10 @@ func (s *commentReactionService) CreateCommentReaction(reaction models.CommentRe
 		}
 
 		var existing models.CommentReaction
-		err := tx.
+		if err := tx.
 			Where("user_id = ? AND comment_id = ?", reaction.UserID, reaction.CommentID).
-			First(&existing).Error
-
-		if err == nil {
-
-			if existing.IsLike == reaction.IsLike {
-				return ErrLikeAlredy
-			}
-
-			if existing.IsLike {
-				if err := tx.Model(&models.Comment{}).
-					Where("id = ?", reaction.CommentID).
-					UpdateColumn("like_count",
-						gorm.Expr("GREATEST(like_count - 1,0)")).Error; err != nil {
-					return err
-				}
-			} else {
-				if err := tx.Model(&models.Comment{}).
-					Where("id = ?", reaction.CommentID).
-					UpdateColumn("dislike_count",
-						gorm.Expr("GREATEST(dislike_count - 1,0)")).Error; err != nil {
-					return err
-				}
-			}
-
-			existing.IsLike = reaction.IsLike
-			return tx.Save(&existing).Error
+			First(&existing).Error; err == nil {
+			return ErrLikeAlready
 		}
 
 		if err := tx.Create(&reaction).Error; err != nil {

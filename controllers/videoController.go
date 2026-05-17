@@ -150,6 +150,17 @@ func (video *VideoController) ListVideos(ctx *gin.Context) {
 }
 
 func (video *VideoController) VideoDetail(ctx *gin.Context) {
+	userID, exists := ctx.Get("user_id")
+	if !exists {
+		logging.Log.Warn("Unauthorized create video attempt")
+
+		ctx.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User not authenticated",
+		})
+		return
+	}
+	currentUserID := userID.(uint)
+
 	videoID, err := helper.ParseUintParam(ctx, "id")
 	if err != nil {
 		logging.Log.Warn("Invalid subscription id param", zap.Error(err))
@@ -157,7 +168,7 @@ func (video *VideoController) VideoDetail(ctx *gin.Context) {
 		return
 	}
 
-	videoData, err := video.VideoService.GetVideoByID(videoID)
+	videoData, err := video.VideoService.GetVideoByID(videoID, currentUserID)
 	if err != nil {
 		if errors.Is(err, services.ErrVideoNotFound) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})

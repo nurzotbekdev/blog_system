@@ -43,8 +43,11 @@ func main() {
 	routes.VideoShareRoutes(router)
 	routes.VideoDownloadRoutes(router)
 	routes.CommentRoutes(router)
+	routes.LikeRoutes(router)
+	routes.HistoryRoutes(router)
 
 	go workers.StartVideoWorker()
+	go workers.StartVideoViewWorker()
 
 	logging.Log.Info("Server started on :8080")
 

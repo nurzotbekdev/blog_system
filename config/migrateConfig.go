@@ -14,5 +14,7 @@ func MigrateConfig() {
 		&models.VideoDownload{},
 		&models.VideoQuality{},
 		&models.Comment{},
+		&models.Like{},
+		&models.History{},
 	)
 }

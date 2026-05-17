@@ -21,7 +21,7 @@ type VideoService interface {
 	CreateVideo(req schemas.CreateVideoRequest, userID uint) error
 	GetMyVideo(userID uint) ([]schemas.MyVideoResponse, error)
 	GetVideo(page, limit int, categoryID uint, search, languageCode, sortBy string) (*schemas.VideoListResponse, error)
-	GetVideoByID(videoID uint) (*schemas.VideoResponse, error)
+	GetVideoByID(videoID, userID uint) (*schemas.VideoResponse, error)
 	EditVideo(videoID, userID uint, languageID, categoryID *uint, title, description, visibility *string, thumbnailPath *multipart.FileHeader) error
 	DeleteVideo(videoID, userID uint) error
 }
@@ -332,7 +332,7 @@ func (s *videoService) GetVideo(page, limit int, categoryID uint, search, langua
 	return &response, nil
 }
 
-func (s *videoService) GetVideoByID(videoID uint) (*schemas.VideoResponse, error) {
+func (s *videoService) GetVideoByID(videoID, userID uint) (*schemas.VideoResponse, error) {
 	var results schemas.VideoResponse
 
 	tx := config.DB.Table("videos").
@@ -364,7 +364,7 @@ func (s *videoService) GetVideoByID(videoID uint) (*schemas.VideoResponse, error
 		Joins("JOIN channels ON channels.id = videos.channel_id").
 		Joins("JOIN languages ON languages.id = videos.language_id").
 		Joins("JOIN categories ON categories.id = videos.category_id").
-		Where("videos.id = ? AND videos.visibility = ?.", videoID, "public").
+		Where("videos.id = ? AND videos.visibility = ?", videoID, "public").
 		Scan(&results)
 
 	if tx.Error != nil {
@@ -395,22 +395,21 @@ func (s *videoService) GetVideoByID(videoID uint) (*schemas.VideoResponse, error
 		)
 	}
 
-	if err := config.DB.
-		Model(&models.Video{}).
-		Where("id = ?", videoID).
-		Update("views", gorm.Expr("views + ?", 1)).Error; err != nil {
-		return nil, err
-	}
+	if userID != 0 {
 
-	if err := config.DB.
-		Model(&models.Channel{}).
-		Where("id = (?)",
-			config.DB.Table("videos").
-				Select("channel_id").
-				Where("id = ?", videoID),
-		).
-		Update("total_views", gorm.Expr("total_views + ?", 1)).Error; err != nil {
-		return nil, err
+		job := jobs.VideoViewJob{
+			UserID:  userID,
+			VideoID: videoID,
+		}
+
+		data, err := json.Marshal(job)
+		if err == nil {
+			_ = config.RedisClient.LPush(
+				config.Ctx,
+				"video_view_queue",
+				data,
+			).Err()
+		}
 	}
 
 	return &results, nil
