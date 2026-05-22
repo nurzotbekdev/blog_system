@@ -41,38 +41,41 @@ func (channel *ChannelController) Create(ctx *gin.Context) {
 	req.ProfileFile = profileImage
 	req.BannerFile = bannerImage
 
+	logging.Log.Info("Creating channel", zap.Uint("user_id", currentUserID), zap.String("channel_name", req.Name))
 	err := validators.ValidateChannel(req.Name, profileImage, bannerImage)
 	if err != nil {
+		logging.Log.Warn("Channel validation failed", zap.Uint("user_id", currentUserID), zap.String("channel_name", req.Name), zap.Error(err))
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	_, err = channel.ChannelService.CreateChannel(req)
 	if err != nil {
+		logging.Log.Warn("Channel already exists", zap.Uint("user_id", currentUserID), zap.String("channel_name", req.Name))
 		if errors.Is(err, services.ErrChannelAlreadyExists) {
 			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
 
-		logging.Error("create channel failed", err)
+		logging.Log.Error("Create channel failed", zap.Uint("user_id", currentUserID), zap.String("channel_name", req.Name), zap.Error(err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"message": "Channel created",
-	})
+	logging.Log.Info("Channel created successfully", zap.Uint("user_id", currentUserID))
+	ctx.JSON(http.StatusCreated, gin.H{"message": "Channel created"})
 }
 
 func (channel *ChannelController) MyChannel(ctx *gin.Context) {
 	userID, exists := ctx.Get("user_id")
 	if !exists {
-		logging.Log.Warn("Unauthorized create channel attempt")
+		logging.Log.Warn("Unauthorized my channel access")
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
 	currentUserID := userID.(uint)
 
+	logging.Log.Info("Fetching my channel", zap.Uint("user_id", currentUserID))
 	channelData, err := channel.ChannelService.GetMyChannel(currentUserID)
 	if err != nil {
 		if errors.Is(err, services.ErrChannelNotFound) {
@@ -81,34 +84,39 @@ func (channel *ChannelController) MyChannel(ctx *gin.Context) {
 			return
 		}
 
-		logging.Log.Error("Get my channel failed", zap.Error(err))
+		logging.Log.Error("Get my channel failed", zap.Uint("user_id", currentUserID), zap.Error(err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
-	logging.Log.Info("My channel fetched", zap.Uint("user_id", currentUserID))
+	logging.Log.Info("My channel fetched successfully", zap.Uint("user_id", currentUserID), zap.Uint("channel_id", channelData.ID), zap.String("channel_name", channelData.Name))
 	ctx.JSON(http.StatusOK, channelData)
 }
 
 func (channel *ChannelController) Channel(ctx *gin.Context) {
 	name := ctx.Query("name")
+	if name == "" {
+		logging.Log.Warn("Empty channel name query")
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Channel name is required"})
+		return
+	}
 
+	logging.Log.Info("Fetching public channel", zap.String("channel_name", name))
 	channelData, err := channel.ChannelService.GetChannel(name)
 	if err != nil {
-		logging.Log.Error("Get my channel failed", zap.Error(err))
+		logging.Log.Error("Get public channel failed", zap.String("channel_name", name), zap.Error(err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"data": channelData,
-	})
+	logging.Log.Info("Public channel fetched successfully")
+	ctx.JSON(http.StatusOK, gin.H{"data": channelData})
 }
 
 func (channel *ChannelController) UpdateChannel(ctx *gin.Context) {
 	userID, exists := ctx.Get("user_id")
 	if !exists {
-		logging.Log.Warn("Unauthorized create channel attempt")
+		logging.Log.Warn("Unauthorized update channel attempt")
 		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
 		return
 	}
@@ -131,8 +139,8 @@ func (channel *ChannelController) UpdateChannel(ctx *gin.Context) {
 	profileImage, _ := ctx.FormFile("profile_image")
 	bannerImage, _ := ctx.FormFile("banner_image")
 
-	err := channel.ChannelService.EditChannel(currentUserID, name, description, profileImage, bannerImage)
-	if err != nil {
+	logging.Log.Info("Updating channel", zap.Uint("user_id", currentUserID), zap.String("new_name", nameStr))
+	if err := channel.ChannelService.EditChannel(currentUserID, name, description, profileImage, bannerImage); err != nil {
 		if errors.Is(err, services.ErrChannelNotFound) {
 			logging.Log.Warn("Channel not found for update", zap.Uint("user_id", currentUserID))
 			ctx.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -140,7 +148,7 @@ func (channel *ChannelController) UpdateChannel(ctx *gin.Context) {
 		}
 
 		if errors.Is(err, services.ErrChannelAlreadyExists) {
-			logging.Log.Warn("Duplicate channel name", zap.Uint("user_id", currentUserID))
+			logging.Log.Warn("Duplicate channel name", zap.Uint("user_id", currentUserID), zap.String("channel_name", nameStr))
 			ctx.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 			return
 		}
@@ -151,11 +159,11 @@ func (channel *ChannelController) UpdateChannel(ctx *gin.Context) {
 			return
 		}
 
-		logging.Log.Error("Update channel failed", zap.Uint("user_id", currentUserID), zap.Error(err))
+		logging.Log.Error("Update channel failed", zap.Uint("user_id", currentUserID), zap.String("channel_name", nameStr), zap.Error(err))
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
-	logging.Log.Info("Channel updated successfully", zap.Uint("user_id", currentUserID))
+	logging.Log.Info("Channel updated successfully", zap.Uint("user_id", currentUserID), zap.String("channel_name", nameStr))
 	ctx.JSON(http.StatusOK, gin.H{"message": "Channel updated successfully"})
 }

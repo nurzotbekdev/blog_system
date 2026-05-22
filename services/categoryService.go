@@ -30,17 +30,19 @@ var (
 
 func (s *categoryService) CreateCategory(category models.Category) error {
 	var existing models.Category
-	if err := config.DB.Where("name= ?", category.Name).First(&existing).Error; err == nil {
-		logging.Log.Warn("Category already added database", zap.Uint("category_id", category.ID), zap.Error(err))
+
+	if err := config.DB.
+		Where("name = ?", category.Name).
+		First(&existing).Error; err == nil {
+
 		return ErrAlreadyCategory
 	}
 
 	if err := config.DB.Create(&category).Error; err != nil {
-		logging.Log.Error("Failed to create category", zap.Uint("category_id", category.ID), zap.Error(err))
+		logging.Log.Error("Failed to create category", zap.String("category_name", category.Name), zap.Error(err))
 		return err
 	}
 
-	logging.Log.Info("Category created successfully", zap.Uint("category_id", category.ID))
 	return nil
 }
 

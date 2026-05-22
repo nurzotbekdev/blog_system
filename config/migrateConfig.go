@@ -16,5 +16,8 @@ func MigrateConfig() {
 		&models.Comment{},
 		&models.Like{},
 		&models.History{},
+		&models.Playlist{},
+		&models.PlaylistVideo{},
+		&models.Notification{},
 	)
 }

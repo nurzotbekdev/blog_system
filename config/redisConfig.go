@@ -1,12 +1,13 @@
 package config
 
 import (
+	"blog_system/logging"
 	"context"
-	"log"
 	"os"
 	"strconv"
 
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 var RedisClient *redis.Client
@@ -18,8 +19,11 @@ func RedisConfig() {
 	password := os.Getenv("REDIS_PASSWORD")
 	dbStr := os.Getenv("REDIS_DB")
 
+	logging.Log.Info("Initializing Redis connection", zap.String("host", host), zap.String("port", port), zap.String("db", dbStr))
+
 	db, err := strconv.Atoi(dbStr)
 	if err != nil {
+		logging.Log.Warn("Invalid REDIS_DB value, using default database 0", zap.String("redis_db", dbStr), zap.Error(err))
 		db = 0
 	}
 
@@ -31,6 +35,8 @@ func RedisConfig() {
 
 	_, err = RedisClient.Ping(Ctx).Result()
 	if err != nil {
-		log.Fatal("Redis connection failed:", err)
+		logging.Log.Fatal("Redis connection failed", zap.String("host", host), zap.String("port", port), zap.Int("db", db), zap.Error(err))
 	}
+
+	logging.Log.Info("Redis connected successfully", zap.String("host", host), zap.String("port", port), zap.Int("db", db))
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"blog_system/config"
 	"blog_system/logging"
+	rabbitmq "blog_system/rabbitMQ"
 	"blog_system/routes"
 	"blog_system/workers"
 	"time"
@@ -17,6 +18,7 @@ func main() {
 	config.MigrateConfig()
 	config.RedisConfig()
 	config.SetupGoogleAuth()
+	config.ConnectingRabbitMQ()
 
 	logging.Init()
 
@@ -43,11 +45,17 @@ func main() {
 	routes.VideoShareRoutes(router)
 	routes.VideoDownloadRoutes(router)
 	routes.CommentRoutes(router)
+	routes.CommentReactionRoutes(router)
 	routes.LikeRoutes(router)
 	routes.HistoryRoutes(router)
+	routes.PlaylistRoutes(router)
+	routes.PlaylistVideoRoutes(router)
+	routes.NotificationRoutes(router)
 
+	go rabbitmq.ConsumeNotifications()
 	go workers.StartVideoWorker()
 	go workers.StartVideoViewWorker()
+	go workers.WarmUpUnread()
 
 	logging.Log.Info("Server started on :8080")
 

@@ -21,7 +21,6 @@ func isValidImage(filename string) bool {
 }
 
 func ValidateChannel(name string, profile *multipart.FileHeader, banner *multipart.FileHeader) error {
-
 	if name == "" {
 		return errors.New("name is required")
 	}
