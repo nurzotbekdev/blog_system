@@ -4,7 +4,7 @@ import (
 	"blog_system/config"
 	"blog_system/helper"
 	"blog_system/jobs"
-	"blog_system/logging"
+
 	"blog_system/models"
 	"blog_system/schemas"
 	"encoding/json"
@@ -13,7 +13,6 @@ import (
 	"os"
 	"strings"
 
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -59,7 +58,6 @@ func (s *videoService) CreateVideo(req schemas.CreateVideoRequest, userID uint) 
 	if req.FilePath != nil {
 		videoPath, err = helper.SaveFile(req.FilePath, "uploads/video")
 		if err != nil {
-			logging.Log.Error("Profile upload failed")
 			return err
 		}
 	}
@@ -67,7 +65,6 @@ func (s *videoService) CreateVideo(req schemas.CreateVideoRequest, userID uint) 
 	if req.ThumbnailPath != nil {
 		thumbnailPath, err = helper.SaveFile(req.ThumbnailPath, "uploads/thumbnail")
 		if err != nil {
-			logging.Log.Error("Profile upload failed")
 			return err
 		}
 	}
@@ -108,17 +105,10 @@ func (s *videoService) CreateVideo(req schemas.CreateVideoRequest, userID uint) 
 		return err
 	}
 
-	logging.Log.Info("Video created successfully", zap.Uint("video_id", newVideo.ID))
 	if err := config.DB.
 		Model(&models.Channel{}).
 		Where("id = ?", channel.ID).
 		Update("total_videos", gorm.Expr("total_videos + ?", 1)).Error; err != nil {
-
-		logging.Log.Error(
-			"Failed to update video count",
-			zap.Uint("video_id", newVideo.ID),
-			zap.Error(err),
-		)
 
 		return err
 	}
@@ -500,9 +490,7 @@ func (s *videoService) EditVideo(videoID, userID uint, languageID, categoryID *u
 
 	if oldThumbnailPath != "" {
 		if err := os.Remove(oldThumbnailPath); err != nil {
-			logging.Log.Warn("Failed to delete old thumbnail image", zap.String("path", oldThumbnailPath), zap.Error(err))
-		} else {
-			logging.Log.Info("Old profile image deleted")
+			return err
 		}
 	}
 

@@ -1,21 +1,18 @@
 package middleware
 
 import (
-	"blog_system/logging"
 	"errors"
 	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"go.uber.org/zap"
 )
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		tokenString, err := ctx.Cookie("token")
 		if err != nil {
-			logging.Log.Warn("Token not found", zap.String("ip", ctx.ClientIP()))
 			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Token not found"})
 			ctx.Abort()
 			return
@@ -29,7 +26,6 @@ func AuthMiddleware() gin.HandlerFunc {
 		})
 
 		if err != nil || !token.Valid {
-			logging.Log.Warn("Invalid token", zap.Error(err))
 			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Token invalid"})
 			ctx.Abort()
 			return
@@ -51,7 +47,6 @@ func AuthMiddleware() gin.HandlerFunc {
 
 		userID := uint(sub)
 		ctx.Set("user_id", userID)
-		logging.Log.Info("Authenticated request", zap.Uint("user_id", userID))
 
 		ctx.Next()
 	}

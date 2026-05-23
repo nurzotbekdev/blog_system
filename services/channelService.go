@@ -3,14 +3,11 @@ package services
 import (
 	"blog_system/config"
 	"blog_system/helper"
-	"blog_system/logging"
 	"blog_system/models"
 	"blog_system/schemas"
 	"errors"
 	"mime/multipart"
 	"os"
-
-	"go.uber.org/zap"
 )
 
 type ChannelService interface {
@@ -44,7 +41,6 @@ func (s *channelService) CreateChannel(req schemas.CreateChannelRequest) (*model
 	if req.ProfileFile != nil {
 		profilePath, err = helper.SaveFile(req.ProfileFile, "uploads/profile")
 		if err != nil {
-			logging.Log.Error("Profile upload failed")
 			tx.Rollback()
 			return nil, err
 		}
@@ -53,7 +49,6 @@ func (s *channelService) CreateChannel(req schemas.CreateChannelRequest) (*model
 	if req.BannerFile != nil {
 		bannerPath, err = helper.SaveFile(req.BannerFile, "uploads/banner")
 		if err != nil {
-			logging.Log.Error("Banner upload failed")
 			helper.RemoveFile(profilePath)
 			tx.Rollback()
 			return nil, err
@@ -69,7 +64,6 @@ func (s *channelService) CreateChannel(req schemas.CreateChannelRequest) (*model
 	}
 
 	if err := tx.Create(&channel).Error; err != nil {
-		logging.Log.Error("DB create failed")
 		helper.RemoveFile(profilePath, bannerPath)
 		tx.Rollback()
 
@@ -81,12 +75,10 @@ func (s *channelService) CreateChannel(req schemas.CreateChannelRequest) (*model
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		logging.Log.Error("Transaction commit failed")
 		helper.RemoveFile(profilePath, bannerPath)
 		return nil, err
 	}
 
-	logging.Log.Info("Channel created successfully")
 	return &channel, nil
 }
 
@@ -114,16 +106,13 @@ func (s *channelService) GetMyChannel(userID uint) (*schemas.ChannelResponse, er
 		Scan(&result)
 
 	if tx.Error != nil {
-		logging.Log.Error("GetMyChannel query failed", zap.Error(tx.Error), zap.Uint("user_id", userID))
 		return nil, tx.Error
 	}
 
 	if tx.RowsAffected == 0 {
-		logging.Log.Warn("Channel not found", zap.Uint("user_id", userID))
 		return nil, ErrChannelNotFound
 	}
 
-	logging.Log.Info("Channel fetched successfully", zap.Uint("user_id", userID))
 	return &result, nil
 }
 
@@ -147,7 +136,6 @@ func (s *channelService) GetChannel(name string) ([]schemas.ChannelSearchRespons
 		Scan(&results)
 
 	if tx.Error != nil {
-		logging.Log.Error("GetChannel search failed", zap.Error(tx.Error), zap.String("query", name))
 		return nil, tx.Error
 	}
 
@@ -157,7 +145,6 @@ func (s *channelService) GetChannel(name string) ([]schemas.ChannelSearchRespons
 func (s *channelService) EditChannel(userID uint, name, description *string, profileImage, bannerImage *multipart.FileHeader) error {
 	var channel models.Channel
 	if err := config.DB.Where("user_id = ?", userID).First(&channel).Error; err != nil {
-		logging.Log.Warn("Channel not found", zap.Uint("user_id", userID), zap.Error(err))
 		return ErrChannelNotFound
 	}
 
@@ -169,7 +156,6 @@ func (s *channelService) EditChannel(userID uint, name, description *string, pro
 		if err := config.DB.
 			Where("name = ? AND user_id != ?", *name, userID).
 			First(&exists).Error; err == nil {
-			logging.Log.Warn("Channel name already exists", zap.Uint("user_id", userID), zap.String("name", *name))
 
 			return ErrChannelAlreadyExists
 		}
@@ -186,7 +172,6 @@ func (s *channelService) EditChannel(userID uint, name, description *string, pro
 
 		profilePath, err := helper.SaveFile(profileImage, "uploads/profile")
 		if err != nil {
-			logging.Log.Error("Profile image upload failed", zap.Error(err))
 			return err
 		}
 
@@ -197,7 +182,6 @@ func (s *channelService) EditChannel(userID uint, name, description *string, pro
 		oldBannerImage = channel.BannerImage
 		bannerPath, err := helper.SaveFile(bannerImage, "uploads/banner")
 		if err != nil {
-			logging.Log.Error("Banner image upload failed", zap.Error(err))
 			return err
 		}
 
@@ -205,37 +189,22 @@ func (s *channelService) EditChannel(userID uint, name, description *string, pro
 	}
 
 	if len(updates) == 0 {
-		logging.Log.Warn("No fields to update", zap.Uint("user_id", userID))
 		return ErrNoFieldsToUpdate
 	}
 
 	if err := config.DB.Model(&channel).Updates(updates).Error; err != nil {
-		logging.Log.Error("Failed to update channel", zap.Uint("user_id", userID), zap.Error(err))
 		return err
 	}
 
 	if oldProfileImage != "" {
 		if err := os.Remove(oldProfileImage); err != nil {
-			logging.Log.Warn("Failed to delete old profile image",
-				zap.String("path", oldProfileImage),
-				zap.Error(err),
-			)
-		} else {
-			logging.Log.Info("Old profile image deleted")
 		}
 	}
 
 	if oldBannerImage != "" {
 		if err := os.Remove(oldBannerImage); err != nil {
-			logging.Log.Warn("Failed to delete old banner image",
-				zap.String("path", oldBannerImage),
-				zap.Error(err),
-			)
-		} else {
-			logging.Log.Info("Old banner image deleted")
 		}
 	}
 
-	logging.Log.Info("Channel updated successfully", zap.Uint("user_id", userID))
 	return nil
 }

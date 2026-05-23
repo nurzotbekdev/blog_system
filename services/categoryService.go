@@ -2,12 +2,9 @@ package services
 
 import (
 	"blog_system/config"
-	"blog_system/logging"
 	"blog_system/models"
 	"blog_system/schemas"
 	"errors"
-
-	"go.uber.org/zap"
 )
 
 type CategoryService interface {
@@ -39,7 +36,6 @@ func (s *categoryService) CreateCategory(category models.Category) error {
 	}
 
 	if err := config.DB.Create(&category).Error; err != nil {
-		logging.Log.Error("Failed to create category", zap.String("category_name", category.Name), zap.Error(err))
 		return err
 	}
 
@@ -49,7 +45,6 @@ func (s *categoryService) CreateCategory(category models.Category) error {
 func (s *categoryService) GetAllCategory() ([]schemas.CategoryResponse, error) {
 	var categorys []models.Category
 	if err := config.DB.Find(&categorys).Error; err != nil {
-		logging.Log.Error("Failed to get categories", zap.Error(err))
 		return nil, err
 	}
 
@@ -62,7 +57,6 @@ func (s *categoryService) GetAllCategory() ([]schemas.CategoryResponse, error) {
 		})
 	}
 
-	logging.Log.Info("Categories fetched successfully", zap.Int("count", len(response)))
 	return response, nil
 }
 
@@ -70,7 +64,6 @@ func (s *categoryService) EditCategory(ID uint, name string) error {
 	var category models.Category
 
 	if err := config.DB.Where("id = ?", ID).First(&category).Error; err != nil {
-		logging.Log.Warn("Category not found", zap.Uint("category_id", ID), zap.Error(err))
 		return ErrCategoryNotFound
 	}
 
@@ -79,31 +72,27 @@ func (s *categoryService) EditCategory(ID uint, name string) error {
 		Where("name = ? AND id != ?", name, ID).
 		First(&existing).Error; err == nil {
 
-		logging.Log.Warn("Category name already exists", zap.String("name", name))
 		return ErrAlreadyCategory
 	}
 
 	if err := config.DB.Model(&category).Update("name", name).Error; err != nil {
-		logging.Log.Error("Failed to update category", zap.Uint("category_id", ID), zap.Error(err))
+
 		return err
 	}
 
-	logging.Log.Info("Category updated successfully", zap.Uint("category_id", ID))
 	return nil
 }
 
 func (s *categoryService) DeleteCategory(ID uint) error {
 	var category models.Category
 	if err := config.DB.Where("id = ?", ID).First(&category).Error; err != nil {
-		logging.Log.Warn("Category not found", zap.Uint("category_id", ID), zap.Error(err))
+
 		return ErrCategoryNotFound
 	}
 
 	if err := config.DB.Unscoped().Delete(&category).Error; err != nil {
-		logging.Log.Error("Failed to delete category", zap.Uint("category_id", category.ID), zap.Error(err))
 		return err
 	}
 
-	logging.Log.Info("Category deleted successfully", zap.Uint("category_id", category.ID))
 	return nil
 }

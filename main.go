@@ -2,7 +2,6 @@ package main
 
 import (
 	"blog_system/config"
-	"blog_system/logging"
 	rabbitmq "blog_system/rabbitMQ"
 	"blog_system/routes"
 	"blog_system/workers"
@@ -20,12 +19,8 @@ func main() {
 	config.SetupGoogleAuth()
 	config.ConnectingRabbitMQ()
 
-	logging.Init()
-
 	router := gin.New()
 
-	router.Use(logging.GinLogger())
-	router.Use(logging.GinErrorLogger())
 	router.Use(gin.Recovery())
 
 	router.Use(cors.New(cors.Config{
@@ -56,8 +51,6 @@ func main() {
 	go workers.StartVideoWorker()
 	go workers.StartVideoViewWorker()
 	go workers.WarmUpUnread()
-
-	logging.Log.Info("Server started on :8080")
 
 	router.Run()
 }

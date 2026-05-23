@@ -2,13 +2,11 @@ package services
 
 import (
 	"blog_system/config"
-	"blog_system/logging"
 	"blog_system/models"
 	"blog_system/schemas"
 	"errors"
 	"time"
 
-	"go.uber.org/zap"
 	"gorm.io/gorm"
 )
 
@@ -36,7 +34,6 @@ func (s *subscriptionService) CreateSubscription(subscription models.Subscriptio
 	var channel models.Channel
 	if err := config.DB.
 		First(&channel, subscription.ChannelID).Error; err != nil {
-		logging.Log.Warn("Channel not found", zap.Uint("channel_id", subscription.ChannelID), zap.Error(err))
 		return ErrChannelNotFound
 	}
 
@@ -45,22 +42,18 @@ func (s *subscriptionService) CreateSubscription(subscription models.Subscriptio
 		Where("user_id = ? AND channel_id = ?", subscription.UserID, subscription.ChannelID).
 		First(&existing).Error
 	if err == nil {
-		logging.Log.Warn("Subscription already exists", zap.Uint("user_id", subscription.UserID), zap.Uint("channel_id", subscription.ChannelID))
 		return ErrAlreadySubscribed
 	}
 
 	if err := config.DB.Create(&subscription).Error; err != nil {
-		logging.Log.Error("Failed to create subscription", zap.Uint("user_id", subscription.UserID), zap.Uint("channel_id", subscription.ChannelID), zap.Error(err))
 		return err
 	}
 
-	logging.Log.Info("Subscription created successfully", zap.Uint("user_id", subscription.UserID), zap.Uint("channel_id", subscription.ChannelID))
 	if err := config.DB.
 		Model(&models.Channel{}).
 		Where("id = ?", subscription.ChannelID).
 		UpdateColumn("total_subscribers",
 			gorm.Expr("total_subscribers + ?", 1)).Error; err != nil {
-		logging.Log.Error("Failed to update subscriber count", zap.Uint("channel_id", subscription.ChannelID), zap.Error(err))
 		return err
 	}
 
@@ -84,12 +77,10 @@ func (s *subscriptionService) GetSubscribedChannels(userID uint) ([]schemas.Subs
 		Scan(&results)
 
 	if tx.Error != nil {
-		logging.Log.Error("GetMySubscribed query failed", zap.Error(tx.Error), zap.Uint("user_id", userID))
 		return nil, tx.Error
 	}
 
 	if tx.RowsAffected == 0 {
-		logging.Log.Warn("Subscribed not found", zap.Uint("user_id", userID))
 		return nil, ErrSubscribedNotFound
 	}
 
@@ -111,7 +102,6 @@ func (s *subscriptionService) GetChannelSubscribers(channelID uint) ([]schemas.C
 		Scan(&results)
 
 	if tx.Error != nil {
-		logging.Log.Error("GetChannelSubscribers query failed", zap.Error(tx.Error))
 		return nil, tx.Error
 	}
 
@@ -123,13 +113,11 @@ func (s *subscriptionService) DeleteSubscription(userID, ID uint) error {
 	if err := config.DB.
 		Where("user_id = ? AND id = ?", userID, ID).
 		First(&subscription).Error; err != nil {
-		logging.Log.Warn("Subscription not found", zap.Uint("user_id", userID), zap.Uint("subscription_id", ID), zap.Error(err))
 
 		return ErrSubscribedNotFound
 	}
 
 	if err := config.DB.Unscoped().Delete(&subscription).Error; err != nil {
-		logging.Log.Error("Failed to delete subscription", zap.Uint("subscription_id", subscription.ID), zap.Error(err))
 		return err
 	}
 
@@ -138,11 +126,9 @@ func (s *subscriptionService) DeleteSubscription(userID, ID uint) error {
 		Where("id = ?", subscription.ChannelID).
 		UpdateColumn("total_subscribers",
 			gorm.Expr("GREATEST(total_subscribers-1,0)")).Error; err != nil {
-		logging.Log.Error("Failed to update channel subscriber count", zap.Uint("channel_id", subscription.ChannelID), zap.Error(err))
 		return err
 	}
 
-	logging.Log.Info("Channel subscriber count updated", zap.Uint("channel_id", subscription.ChannelID))
 	return nil
 }
 
@@ -150,13 +136,10 @@ func (s *subscriptionService) GetSubscriberStatistics(channelID uint) (schemas.S
 	var status schemas.SubscriptionStatus
 	now := time.Now()
 
-	logging.Log.Info("Getting subscriber statistics started", zap.Uint("channel_id", channelID))
-
 	if err := config.DB.Model(&models.Subscription{}).
 		Where("channel_id = ?", channelID).
 		Count(&status.Total).Error; err != nil {
 
-		logging.Log.Error("Failed to get total subscribers", zap.Uint("channel_id", channelID), zap.Error(err))
 		return status, err
 	}
 
@@ -164,7 +147,6 @@ func (s *subscriptionService) GetSubscriberStatistics(channelID uint) (schemas.S
 		Where("channel_id = ? AND created_at >= ?", channelID, now.AddDate(0, 0, -1)).
 		Count(&status.Today).Error; err != nil {
 
-		logging.Log.Error("Failed to get today subscribers", zap.Uint("channel_id", channelID), zap.Error(err))
 		return status, err
 	}
 
@@ -172,7 +154,6 @@ func (s *subscriptionService) GetSubscriberStatistics(channelID uint) (schemas.S
 		Where("channel_id = ? AND created_at >= ?", channelID, now.AddDate(0, 0, -7)).
 		Count(&status.ThisWeek).Error; err != nil {
 
-		logging.Log.Error("Failed to get weekly subscribers", zap.Uint("channel_id", channelID), zap.Error(err))
 		return status, err
 	}
 
@@ -180,17 +161,8 @@ func (s *subscriptionService) GetSubscriberStatistics(channelID uint) (schemas.S
 		Where("channel_id = ? AND created_at >= ?", channelID, now.AddDate(0, -1, 0)).
 		Count(&status.ThisMonth).Error; err != nil {
 
-		logging.Log.Error("Failed to get monthly subscribers", zap.Uint("channel_id", channelID), zap.Error(err))
 		return status, err
 	}
-
-	logging.Log.Info("Subscriber statistics fetched successfully",
-		zap.Uint("channel_id", channelID),
-		zap.Int64("total", status.Total),
-		zap.Int64("today", status.Today),
-		zap.Int64("week", status.ThisWeek),
-		zap.Int64("month", status.ThisMonth),
-	)
 
 	return status, nil
 }
